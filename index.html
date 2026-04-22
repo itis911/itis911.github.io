@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>0xYourHandle</title>
+  <meta name="description" content="Security research and vulnerability write-ups." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-vignette" aria-hidden="true"></div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="site-logo" href="index.html">
+        <img class="logo-img" src="assets/logo.png" alt="logo" />
+        <span class="logo-text">
+          <span class="prompt">~/</span>0xYourHandle<span class="logo-cursor"></span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a class="nav-link" href="index.html">writeups</a>
+        <a class="nav-link" href="about.html">about</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+
+      <!-- Hero -->
+      <div class="page-hero">
+        <div class="hero-top">
+          <img class="hero-avatar" src="assets/logo.png" alt="0xYourHandle" />
+          <div class="hero-name-block">
+            <div class="hero-prompt">$ whoami</div>
+            <div class="hero-name">0xYourHandle</div>
+          </div>
+        </div>
+        <div class="hero-sub">
+          security researcher
+          <span class="sep">//</span>
+          Android &amp; mobile
+          <span class="sep">//</span>
+          CTF
+        </div>
+      </div>
+
+      <!-- Write-ups -->
+      <div class="sec-label">write-ups</div>
+
+      <div class="card-list">
+
+        <!-- EXAMPLE — replace with your posts -->
+        <a class="post-card" href="writeups/cropper-vulnerability.html">
+          <div class="card-row">
+            <span class="card-title">Android CropImage &mdash; File Theft via Parcelable Intent</span>
+            <span class="card-date">2024-01-15</span>
+          </div>
+          <div class="card-desc">
+            How a popular Android image cropping library silently introduced file theft and path traversal risks into thousands of apps.
+          </div>
+          <div class="tags">
+            <span class="tag tag-red">Android</span>
+            <span class="tag tag-amber">File Theft</span>
+            <span class="tag tag-green">CTF</span>
+          </div>
+        </a>
+
+        <!--
+        ============================================
+        NEW WRITE-UP CARD — copy this block:
+
+        <a class="post-card" href="writeups/YOUR-SLUG.html">
+          <div class="card-row">
+            <span class="card-title">Title here</span>
+            <span class="card-date">YYYY-MM-DD</span>
+          </div>
+          <div class="card-desc">Short description.</div>
+          <div class="tags">
+            <span class="tag tag-red">Category</span>
+          </div>
+        </a>
+        ============================================
+        -->
+
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span>&copy; 2024 0xYourHandle &mdash; educational purposes only.</span>
+      <a href="about.html">contact</a>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

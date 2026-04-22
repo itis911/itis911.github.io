@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<!--
+  ╔══════════════════════════════════════════════╗
+  ║  WRITE-UP TEMPLATE                           ║
+  ║  Copy to: writeups/your-slug.html            ║
+  ║                                              ║
+  ║  Language toggle:                            ║
+  ║  - Fill BOTH content-en and content-ar       ║
+  ║  - For English-only: delete content-ar div   ║
+  ║    and the lang-bar div entirely             ║
+  ╚══════════════════════════════════════════════╝
+-->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YOUR_TITLE &mdash; 0xYourHandle</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body>
+
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-vignette" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="site-logo" href="../index.html">
+        <img class="logo-img" src="../assets/logo.png" alt="logo" />
+        <span class="logo-text">
+          <span class="prompt">~/</span>0xYourHandle<span class="logo-cursor"></span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a class="nav-link active" href="../index.html">writeups</a>
+        <a class="nav-link" href="../about.html">about</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+
+      <div class="page-header">
+        <div class="tags" style="margin-bottom:12px;">
+          <span class="tag tag-red">CATEGORY</span>
+          <span class="tag tag-amber">TYPE</span>
+        </div>
+        <h1 class="page-title">YOUR_TITLE_HERE</h1>
+        <div class="page-meta">
+          <span>YYYY-MM-DD</span>
+          <span class="sep">//</span>
+          <span>X min read</span>
+        </div>
+      </div>
+
+      <!--
+        Language bar — ONLY needed if you have both EN and AR.
+        If English only, delete this entire lang-bar div.
+      -->
+      <div class="lang-bar">
+        <button class="lang-btn active" id="btn-en">EN</button>
+        <span class="lang-divider">/</span>
+        <button class="lang-btn" id="btn-ar">AR</button>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           ENGLISH — write Markdown inside here
+      ══════════════════════════════════════ -->
+      <div id="content-en">
+        <div class="markdown">
+
+## Overview
+
+Write your content here in **Markdown**.
+Use `backtick` for inline code &mdash; renders green.
+
+```java
+// Fenced code blocks also render green
+public void example() {
+    // your code here
+}
+```
+
+## Section Two
+
+More content here.
+
+![Screenshot description|Optional caption](../assets/img/your-image.png)
+
+> A blockquote for important notes.
+
+## References
+
+- [Link one](https://example.com)
+- [Link two](https://example.com)
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           ARABIC — write Markdown inside here
+           Delete this whole div for EN-only posts
+      ══════════════════════════════════════ -->
+      <div id="content-ar" style="display:none;">
+        <div class="markdown" data-lang="ar">
+
+## نظرة عامة
+
+اكتب محتواك هنا بالعربية في **Markdown**.
+استخدم `backtick` للكود المضمن &mdash; يظهر باللون الأخضر.
+
+```java
+// كتل الكود تظهر باللون الأخضر أيضاً
+public void example() {
+    // الكود هنا
+}
+```
+
+## قسم ثانٍ
+
+المزيد من المحتوى.
+
+> ملاحظة مهمة هنا.
+
+## المراجع
+
+- [رابط أول](https://example.com)
+- [رابط ثانٍ](https://example.com)
+
+        </div>
+      </div>
+
+      <a class="back-link" href="../index.html">back to write-ups</a>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span>&copy; 2024 0xYourHandle &mdash; educational purposes only.</span>
+      <a href="../index.html">home</a>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>
