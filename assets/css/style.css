@@ -262,6 +262,155 @@ body::before {
 .tag-amber  { color: var(--amber);     border-color: rgba(245,166,35,0.3);  background: rgba(245,166,35,0.05); }
 .tag-cyan   { color: var(--cyan);      border-color: rgba(0,229,255,0.25);  background: rgba(0,229,255,0.04); }
 .tag-gray   { color: var(--text-muted); border-color: var(--border); background: var(--bg3); }
+/* ==========================================================================
+   CATEGORY 1: VULNERABILITIES & ATTACK VECTORS (15 Tags)
+   ========================================================================== */
+.tag-rce          { background-color: rgba(225, 29, 72, 0.2);  color: #fda4af; border: 1px solid #f43f5e; }
+.tag-sqli         { background-color: rgba(217, 119, 6, 0.2);  color: #fcd34d; border: 1px solid #f59e0b; }
+.tag-xss          { background-color: rgba(147, 51, 234, 0.2); color: #d8b4fe; border: 1px solid #a855f7; }
+.tag-csrf         { background-color: rgba(2, 132, 199, 0.2);  color: #7dd3fc; border: 1px solid #0284c7; }
+.tag-ssrf         { background-color: rgba(13, 148, 136, 0.2); color: #5eead4; border: 1px solid #14b8a6; }
+.tag-lfi          { background-color: rgba(109, 40, 217, 0.2); color: #c4b5fd; border: 1px solid #7c3aed; }
+.tag-rfi          { background-color: rgba(190, 18, 60, 0.2);  color: #fecdd3; border: 1px solid #e11d48; }
+.tag-idor         { background-color: rgba(67, 56, 202, 0.2);  color: #a5b4fc; border: 1px solid #4f46e5; }
+.tag-xxe          { background-color: rgba(180, 83, 9, 0.2);   color: #fde68a; border: 1px solid #d97706; }
+.tag-deserialization { background-color: rgba(159, 18, 57, 0.2); color: #ffe4e6; border: 1px solid #be123c; }
+.tag-overflow     { background-color: rgba(136, 19, 55, 0.2);  color: #fecdd3; border: 1px solid #9f1239; }
+.tag-race-condition { background-color: rgba(124, 45, 18, 0.2); color: #ffedd5; border: 1px solid #c2410c; }
+.tag-subdomain-takeover { background-color: rgba(77, 124, 15, 0.2); color: #bef264; border: 1px solid #65a30d; }
+.tag-auth-bypass   { background-color: rgba(157, 23, 77, 0.2); color: #fbcfe8; border: 1px solid #be185d; }
+.tag-logic-flaw   { background-color: rgba(30, 58, 138, 0.2); color: #bfdbfe; border: 1px solid #1d4ed8; }
+
+/* ==========================================================================
+   CATEGORY 2: SEVERITY & RISK LEVELS (10 Tags)
+   ========================================================================== */
+.tag-critical     { background-color: #450a0a; color: #ff4d4d; border: 1px solid #ff0000; box-shadow: 0 0 6px rgba(255,0,0,0.3); }
+.tag-high         { background-color: #451a03; color: #ff944d; border: 1px solid #ff6600; }
+.tag-medium       { background-color: #3f6212; color: #d9f99d; border: 1px solid #84cc16; }
+.tag-low          { background-color: #14532d; color: #86efac; border: 1px solid #22c55e; }
+.tag-info         { background-color: #1e3a8a; color: #93c5fd; border: 1px solid #3b82f6; }
+.tag-zero-day     { background-color: #000000; color: #00ff66; border: 1px solid #00ff66; box-shadow: 0 0 8px rgba(0,255,102,0.4); }
+.tag-patched      { background-color: #1f2937; color: #9ca3af; border: 1px solid #4b5563; }
+.tag-unpatched    { background-color: #881337; color: #fda4af; border: 1px solid #f43f5e; }
+.tag-exploit-pub  { background-color: #581c87; color: #e9d5ff; border: 1px solid #a855f7; }
+.tag-poc-available { background-color: #164e63; color: #a5f3fc; border: 1px solid #06b6d4; }
+
+/* ==========================================================================
+   CATEGORY 3: TARGETS, OS & PLATFORMS (15 Tags)
+   ========================================================================== */
+.tag-android      { background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid #22c55e; }
+.tag-ios          { background-color: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid #64748b; }
+.tag-windows      { background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #0284c7; }
+.tag-linux        { background-color: rgba(250, 204, 21, 0.15); color: #fde047; border: 1px solid #eab308; }
+.tag-macos        { background-color: rgba(203, 213, 225, 0.15); color: #f1f5f9; border: 1px solid #94a3b8; }
+.tag-webview      { background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid #9333ea; }
+.tag-browser      { background-color: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid #ea580c; }
+.tag-docker       { background-color: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid #0284c7; }
+.tag-kubernetes   { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid #2563eb; }
+.tag-aws          { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #d97706; }
+.tag-azure        { background-color: rgba(37, 99, 235, 0.15);  color: #93c5fd; border: 1px solid #1d4ed8; }
+.tag-gcp          { background-color: rgba(239, 68, 68, 0.15);  color: #fca5a5; border: 1px solid #dc2626; }
+.tag-active-directory { background-color: rgba(30, 64, 175, 0.15); color: #bfdbfe; border: 1px solid #1e40af; }
+.tag-firmware     { background-color: rgba(120, 113, 108, 0.15); color: #d6d3d1; border: 1px solid #78716c; }
+.tag-kernel       { background-color: rgba(220, 38, 38, 0.15);  color: #fca5a5; border: 1px solid #b91c1c; }
+
+/* ==========================================================================
+   CATEGORY 4: DOMAINS & GENERAL TECH STACK (10 Tags)
+   ========================================================================== */
+.tag-web-sec      { background-color: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #059669; }
+.tag-mobile-sec   { background-color: rgba(20, 184, 166, 0.2); color: #5eead4; border: 1px solid #0d9488; }
+.tag-cloud-sec    { background-color: rgba(14, 165, 233, 0.2); color: #7dd3fc; border: 1px solid #0284c7; }
+.tag-rev-engineering { background-color: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid #7e22ce; }
+.tag-cryptography { background-color: rgba(234, 179, 8, 0.2); color: #fef08a; border: 1px solid #ca8a04; }
+.tag-forensics    { background-color: rgba(99, 102, 241, 0.2); color: #c7d2fe; border: 1px solid #4338ca; }
+.tag-hardware     { background-color: rgba(244, 63, 94, 0.2);  color: #fecdd3; border: 1px solid #be123c; }
+.tag-api-security { background-color: rgba(6, 182, 212, 0.2);  color: #a5f3fc; border: 1px solid #0891b2; }
+.tag-devsecops    { background-color: rgba(132, 204, 22, 0.2); color: #bef264; border: 1px solid #4d7c0f; }
+.tag-malware      { background-color: rgba(153, 27, 27, 0.2);  color: #fca5a5; border: 1px solid #991b1b; }
+
+/* ==========================================================================
+   CATEGORY 5: PROTOCOLS & DATA FORMATS (10 Tags)
+   ========================================================================== */
+.tag-graphql     { background-color: rgba(225, 29, 72, 0.15); color: #fda4af; border: 1px solid #e11d48; }
+.tag-rest-api    { background-color: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid #10b981; }
+.tag-jwt         { background-color: rgba(245, 158, 11, 0.15); color: #fde047; border: 1px solid #f59e0b; }
+.tag-oauth       { background-color: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid #3b82f6; }
+.tag-dns         { background-color: rgba(107, 114, 128, 0.15); color: #e5e7eb; border: 1px solid #4b5563; }
+.tag-smb         { background-color: rgba(220, 38, 38, 0.15); color: #fca5a5; border: 1px solid #dc2626; }
+.tag-http        { background-color: rgba(13, 148, 136, 0.15); color: #99f6e4; border: 1px solid #0d9488; }
+.tag-grpc        { background-color: rgba(139, 92, 246, 0.15); color: #ddd6fe; border: 1px solid #8b5cf6; }
+.tag-json        { background-color: rgba(234, 179, 8, 0.15); color: #fef08a; border: 1px solid #ca8a04; }
+.tag-protobuf    { background-color: rgba(236, 72, 153, 0.15); color: #fbcfe8; border: 1px solid #ec4899; }
+
+/* ==========================================================================
+   CATEGORY 6: STANDARD SPECTRUM COLORS (10 Tags)
+   ========================================================================== */
+.tag-red         { background-color: #450a0a; color: #fca5a5; border: 1px solid #ef4444; }
+.tag-orange      { background-color: #431407; color: #fdba74; border: 1px solid #f97316; }
+.tag-amber       { background-color: #451a03; color: #fde68a; border: 1px solid #f59e0b; }
+.tag-yellow      { background-color: #3f3c05; color: #fef08a; border: 1px solid #eab308; }
+.tag-lime        { background-color: #1a2e05; color: #d9f99d; border: 1px solid #84cc16; }
+.tag-green       { background-color: #052e16; color: #86efac; border: 1px solid #22c55e; }
+.tag-emerald     { background-color: #064e3b; color: #a7f3d0; border: 1px solid #10b981; }
+.tag-teal        { background-color: #042f2e; color: #99f6e4; border: 1px solid #14b8a6; }
+.tag-cyan        { background-color: #083344; color: #a5f3fc; border: 1px solid #06b6d4; }
+.tag-sky         { background-color: #0c4a6e; color: #bae6fd; border: 1px solid #0ea5e9; }
+
+/* ==========================================================================
+   CATEGORY 7: EXTENDED SPECTRUM COLORS (10 Tags)
+   ========================================================================== */
+.tag-blue        { background-color: #172554; color: #bfdbfe; border: 1px solid #3b82f6; }
+.tag-indigo      { background-color: #1e1b4b; color: #c7d2fe; border: 1px solid #6366f1; }
+.tag-violet      { background-color: #2e1065; color: #ddd6fe; border: 1px solid #8b5cf6; }
+.tag-purple      { background-color: #3b0764; color: #e9d5ff; border: 1px solid #a855f7; }
+.tag-fuchsia     { background-color: #4a044e; color: #f5d0fe; border: 1px solid #d946ef; }
+.tag-pink        { background-color: #500724; color: #fbcfe8; border: 1px solid #ec4899; }
+.tag-rose        { background-color: #4c0519; color: #fecdd3; border: 1px solid #f43f5e; }
+.tag-slate       { background-color: #0f172a; color: #cbd5e1; border: 1px solid #475569; }
+.tag-gray        { background-color: #111827; color: #d1d5db; border: 1px solid #4b5563; }
+.tag-zinc        { background-color: #18181b; color: #d4d4d8; border: 1px solid #52525b; }
+
+/* ==========================================================================
+   CATEGORY 8: NEON & CYBERPUNK (GLOW EFFECTS) (10 Tags)
+   ========================================================================== */
+.tag-neon-green  { background-color: #001a08; color: #00ff66; border: 1px solid #00ff66; box-shadow: 0 0 5px rgba(0, 255, 102, 0.4); }
+.tag-neon-cyan   { background-color: #001a1a; color: #00ffff; border: 1px solid #00ffff; box-shadow: 0 0 5px rgba(0, 255, 255, 0.4); }
+.tag-neon-pink   { background-color: #1a001a; color: #ff00ff; border: 1px solid #ff00ff; box-shadow: 0 0 5px rgba(255, 0, 255, 0.4); }
+.tag-neon-yellow { background-color: #1a1a00; color: #ffff00; border: 1px solid #ffff00; box-shadow: 0 0 5px rgba(255, 255, 0, 0.4); }
+.tag-neon-red    { background-color: #1a0000; color: #ff3333; border: 1px solid #ff3333; box-shadow: 0 0 5px rgba(255, 51, 51, 0.4); }
+.tag-neon-purple { background-color: #10001a; color: #bf00ff; border: 1px solid #bf00ff; box-shadow: 0 0 5px rgba(191, 0, 255, 0.4); }
+.tag-neon-blue   { background-color: #000d1a; color: #0088ff; border: 1px solid #0088ff; box-shadow: 0 0 5px rgba(0, 136, 255, 0.4); }
+.tag-neon-orange { background-color: #1a0a00; color: #ff6600; border: 1px solid #ff6600; box-shadow: 0 0 5px rgba(255, 102, 0, 0.4); }
+.tag-neon-lime   { background-color: #0d1a00; color: #99ff00; border: 1px solid #99ff00; box-shadow: 0 0 5px rgba(153, 255, 0, 0.4); }
+.tag-terminal    { background-color: #000000; color: #33ff33; border: 1px solid #33ff33; font-weight: bold; }
+
+/* ==========================================================================
+   CATEGORY 9: MINIMAL OUTLINE VARIATIONS (10 Tags)
+   ========================================================================== */
+.tag-outline-green  { background: transparent; color: #4ade80; border: 1px solid #22c55e; }
+.tag-outline-red    { background: transparent; color: #fca5a5; border: 1px solid #ef4444; }
+.tag-outline-blue   { background: transparent; color: #93c5fd; border: 1px solid #3b82f6; }
+.tag-outline-yellow { background: transparent; color: #fef08a; border: 1px solid #eab308; }
+.tag-outline-purple { background: transparent; color: #e9d5ff; border: 1px solid #a855f7; }
+.tag-outline-cyan   { background: transparent; color: #a5f3fc; border: 1px solid #06b6d4; }
+.tag-outline-orange { background: transparent; color: #fed7aa; border: 1px solid #f97316; }
+.tag-outline-pink   { background: transparent; color: #fbcfe8; border: 1px solid #ec4899; }
+.tag-outline-gray   { background: transparent; color: #9ca3af; border: 1px solid #4b5563; }
+.tag-outline-white  { background: transparent; color: #ffffff; border: 1px solid #ffffff; }
+
+/* ==========================================================================
+   CATEGORY 10: SOLID DARK BACKDROPS (10 Tags)
+   ========================================================================== */
+.tag-dark-green  { background-color: #052e16; color: #dcfce7; border: none; }
+.tag-dark-red    { background-color: #450a0a; color: #fee2e2; border: none; }
+.tag-dark-blue   { background-color: #172554; color: #dbeafe; border: none; }
+.tag-dark-purple { background-color: #3b0764; color: #f3e8ff; border: none; }
+.tag-dark-yellow { background-color: #422006; color: #fef9c3; border: none; }
+.tag-dark-cyan   { background-color: #083344; color: #cffafe; border: none; }
+.tag-dark-orange { background-color: #431407; color: #ffedd5; border: none; }
+.tag-dark-pink   { background-color: #500724; color: #fce7f3; border: none; }
+.tag-dark-slate  { background-color: #0f172a; color: #f1f5f9; border: none; }
+.tag-matrix      { background-color: #001100; color: #00ff41; border: 1px solid #003300; }
 
 /* ─── About / Contact page ─────────────────────── */
 .about-grid {
