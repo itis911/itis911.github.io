@@ -52,11 +52,27 @@
 
 I wanted to stop being a tool user and start being a researcher: read the
 source, trace the path, understand the mechanism, then try to find something
-nobody had written down. That is still the only method I trust.
+nobody had written down. The first hundred hours are mostly reading source and
+being wrong, but it is the only way to get a result that is yours.
 
-It began with [Romain's detector](https://www.romainthomas.fr/post/26-10-frida-stalker-detection/)
-and [Ole's 17.26.0 notes](https://frida.re/news/2026/11/05/frida-17-26-0-released/).
-I opened `gumstalker-arm64.c` and wrote three probes that never touch the stack.
+It started with Romain Thomas's post,
+[Detecting Frida Stalker](https://www.romainthomas.fr/post/26-10-frida-stalker-detection/).
+It is one of those detections that is almost insultingly simple: write a
+canary below the stack pointer, execute an indirect branch, and check whether
+Stalker scribbled over it. No `/proc`, no memory scan, no signal. Just the
+stack, doing snitch duty.
+
+A few days later, Ole André published the
+[Frida 17.26.0 release notes](https://frida.re/news/2026/11/05/frida-17-26-0-released/).
+The Stalker section reads like a direct answer:
+
+> **“Stalker has always spilled its scratch registers to the target’s stack, below the stack pointer and past the red zone.”**
+>
+> **“Stalker now keeps them in its own per-context stack on x86, x86_64, ARM and ARM64.”**
+
+That is the whole plot: a detector, a fix, and a changelog that tells you
+exactly where to look. So I opened the source, followed the spill path, took
+notes, and then wrote three probes that do not depend on the stack at all.
 
 ---
 
@@ -107,51 +123,6 @@ everything, and you rebuild the ranges at runtime.
 ---
 
 ## WD-00: I Don't Know Your Offsets — And I Don't Need To
-
-### Can we just `svc #0` past libc and libdl hooking?
-
-No. `dl_iterate_phdr` is not a syscall: there is no `__NR_dl_iterate_phdr`, and
-`svc #0` has nothing to jump to. On Android the call chain is three ordinary
-functions, and the real work happens inside `linker64`:
-
-```c
-/* bionic/linker/dlfcn.cpp:196 */
-int __loader_dl_iterate_phdr (int (*cb)(dl_phdr_info*, size_t, void*), void* data)
-{
-  ScopedPthreadMutexLocker locker (&amp;g_dl_mutex);
-  return do_dl_iterate_phdr (cb, data);
-}
-```
-
-The kernel cannot help here. A syscall is a fixed ABI; the module list is
-userspace state owned by the linker, and the kernel's view is
-`/proc/self/maps` — text, no program headers. `svc #0` can open and read that
-file, nothing more.
-
-`dl_iterate_phdr` itself is public API (`&lt;link.h>`, API 21+). You can also
-resolve `__loader_dl_iterate_phdr` directly, but that skips one `jmp`, still
-takes `g_dl_mutex`, and ties you to a private symbol. And do not call either
-from the signal handler: if `SIGALRM` lands while the thread is inside
-`dlopen`, that mutex deadlocks the process. WD-00 calls it once, before
-`setitimer`, and never again.
-
-Once you have the ranges, the check is boring in the best way:
-
-```text
-PC = 0x7b6d2c4a10
-libc.so range = 0x7b6d226000 .. 0x7b6d3c6000
-=> inside
-
-PC = 0x7d1e00400c
-no module range contains it
-=> outside
-```
-
-That is the whole module map. The rest is sampling.
-
-Sources: [libdl.cpp#130](https://android.googlesource.com/platform/bionic/+/refs/heads/main/libdl/libdl.cpp#130),
-[dlfcn.cpp#196](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/dlfcn.cpp#196),
-[linker.cpp#439](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/linker.cpp#439).
 
 We arm a real-time interval timer for 80 ms, with a 1 ms period.
 
@@ -252,6 +223,51 @@ WD00 CLEAN sampled=79 outside=0
 No maps parsing. No `/proc`. No memory reads. That 81-sample window with 68
 outside is the most useful line in the whole log: it shows the signal is a
 ratio, not a boolean, and it shows why the majority rule matters.
+
+### Can we just `svc #0` past libc and libdl hooking?
+
+No. `dl_iterate_phdr` is not a syscall: there is no `__NR_dl_iterate_phdr`, and
+`svc #0` has nothing to jump to. On Android the call chain is three ordinary
+functions, and the real work happens inside `linker64`:
+
+```c
+/* bionic/linker/dlfcn.cpp:196 */
+int __loader_dl_iterate_phdr (int (*cb)(dl_phdr_info*, size_t, void*), void* data)
+{
+  ScopedPthreadMutexLocker locker (&amp;g_dl_mutex);
+  return do_dl_iterate_phdr (cb, data);
+}
+```
+
+The kernel cannot help here. A syscall is a fixed ABI; the module list is
+userspace state owned by the linker, and the kernel's view is
+`/proc/self/maps` — text, no program headers. `svc #0` can open and read that
+file, nothing more.
+
+`dl_iterate_phdr` itself is public API (`&lt;link.h>`, API 21+). You can also
+resolve `__loader_dl_iterate_phdr` directly, but that skips one `jmp`, still
+takes `g_dl_mutex`, and ties you to a private symbol. And do not call either
+from the signal handler: if `SIGALRM` lands while the thread is inside
+`dlopen`, that mutex deadlocks the process. WD-00 calls it once, before
+`setitimer`, and never again.
+
+Once you have the ranges, the check is boring in the best way:
+
+```text
+PC = 0x7b6d2c4a10
+libc.so range = 0x7b6d226000 .. 0x7b6d3c6000
+=> inside
+
+PC = 0x7d1e00400c
+no module range contains it
+=> outside
+```
+
+That is the whole module map. The rest is sampling.
+
+Sources: [libdl.cpp#130](https://android.googlesource.com/platform/bionic/+/refs/heads/main/libdl/libdl.cpp#130),
+[dlfcn.cpp#196](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/dlfcn.cpp#196),
+[linker.cpp#439](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/linker.cpp#439).
 
 ### The fine print (the part that bites)
 
