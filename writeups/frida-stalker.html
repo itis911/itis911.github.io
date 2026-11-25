@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>emailof911 | Security Researcher</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/logo.png" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-vignette" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="site-logo" href="../index.html">
+        <img class="logo-img" src="../assets/logo.png" alt="logo" />
+        <span class="logo-text">
+          <span class="prompt">~/</span>emailof911<span class="logo-cursor"></span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a class="nav-link active" href="../index.html">writeups</a>
+        <a class="nav-link" href="../about.html">about</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div class="wrap">
+      <div class="page-header">
+        <div class="tags" style="margin-bottom:12px;">
+          <span class="tag tag-neon-red">RASP</span>
+          <span class="tag tag-neon-green">FRIDA</span>
+          <span class="tag tag-neon-cyan">arm64</span>
+          <span class="tag tag-neon-purple">elf</span>
+          <span class="tag tag-neon-orange">ASLR</span>
+        </div>
+        <h1 class="page-title">frida stalker under the hood new detection ways to catch a follow</h1>
+      </div>
+      <!-- Language bar -->
+      <div class="lang-bar">
+        <button class="lang-btn active" id="btn-en">EN</button>
+      </div>
+      <!-- == ENGLISH == -->
+      <div id="content-en">
+        <div class="markdown">
+
+> **TL;DR:** three in-process fingerprints for a followed thread, all read from Frida's own code slab — the PC leaves every loaded module, your body is copied twice, and the snapshot is byte-perfect. No root, no ptrace.
+
+---
+
+## How this started
+
+I wanted to stop being a tool user and start being a researcher: read the
+source, trace the path, understand the mechanism, then try to find something
+nobody had written down. That is still the only method I trust.
+
+It began with Romain Thomas's
+[Detecting Frida Stalker](https://www.romainthomas.fr/post/26-10-frida-stalker-detection/).
+When Frida 17.26.0 closed that specific gap, I opened `gumstalker-arm64.c` to
+see what was left and wrote three probes that do not touch the stack at all.
+
+---
+
+## ELF, ASLR, and the module map — the beginner cut, because everything below assumes it
+
+Stalker executes translated code from an anonymous executable slab. That is
+the entire reason WD-00 works: when a followed thread is running translated
+code, its program counter is not inside any file-backed module.
+
+The naive way to check that is to read `/proc/self/maps` and parse the text.
+It works, but it is noisy, it is easy to hook, and it drags in file I/O and
+string parsing. For WD-00 we do not read `/proc` at all. We ask the dynamic
+linker for the list of loaded ELF objects:
+
+```c
+dl_iterate_phdr(callback, data);
+```
+
+`dl_iterate_phdr` walks every ELF object the dynamic linker knows about and
+calls your callback with a `struct dl_phdr_info`. That struct gives you:
+
+- `dlpi_addr`: the object's load bias — the ASLR slide, in practice.
+- `dlpi_name`: the file path. Empty for the main executable.
+- `dlpi_phdr`: a pointer to the object's program header array.
+- `dlpi_phnum`: how many program headers there are.
+
+Each program header is an `ElfW(Phdr)`. We care about `PT_LOAD` segments with
+the executable bit (`PF_X`). For each one, the runtime range is:
+
+```c
+lo = dlpi_addr + p_vaddr;
+hi = lo + p_memsz;
+```
+
+> ASLR :: the loader rolls a random base for every process, so `p_vaddr` from
+> the ELF file is only half the address; `p_vaddr + dlpi_addr` is where the
+> bytes actually live this time.
+
+That is the formula that absorbs ASLR. `p_vaddr` is the link-time virtual
+address; `dlpi_addr` is the random slide the kernel chose for this process.
+Add them and you get the address the code is actually mapped at. `p_memsz`
+(not `p_filesz`) is the right size for the memory range; the executable
+segment is usually the same in both, but `p_memsz` is the mapping contract.
+
+No hardcoded addresses. No guessing. The loader tells you where it put
+everything, and you rebuild the ranges at runtime.
+
+---
+
+## WD-00: I Don't Know Your Offsets — And I Don't Need To
+
+### Can we just `svc #0` past libc and libdl hooking?
+
+No. `dl_iterate_phdr` is not a syscall: there is no `__NR_dl_iterate_phdr`, and
+`svc #0` has nothing to jump to. On Android the call chain is three ordinary
+functions, and the real work happens inside `linker64`:
+
+```c
+/* bionic/linker/dlfcn.cpp:196 */
+int __loader_dl_iterate_phdr (int (*cb)(dl_phdr_info*, size_t, void*), void* data)
+{
+  ScopedPthreadMutexLocker locker (&amp;g_dl_mutex);
+  return do_dl_iterate_phdr (cb, data);
+}
+```
+
+The kernel cannot help here. A syscall is a fixed ABI; the module list is
+userspace state owned by the linker, and the kernel's view is
+`/proc/self/maps` — text, no program headers. `svc #0` can open and read that
+file, nothing more.
+
+`dl_iterate_phdr` itself is public API (`&lt;link.h>`, API 21+). You can also
+resolve `__loader_dl_iterate_phdr` directly, but that skips one `jmp`, still
+takes `g_dl_mutex`, and ties you to a private symbol. And do not call either
+from the signal handler: if `SIGALRM` lands while the thread is inside
+`dlopen`, that mutex deadlocks the process. WD-00 calls it once, before
+`setitimer`, and never again.
+
+Once you have the ranges, the check is boring in the best way:
+
+```text
+PC = 0x7b6d2c4a10
+libc.so range = 0x7b6d226000 .. 0x7b6d3c6000
+=> inside
+
+PC = 0x7d1e00400c
+no module range contains it
+=> outside
+```
+
+That is the whole module map. The rest is sampling.
+
+Sources: [libdl.cpp#130](https://android.googlesource.com/platform/bionic/+/refs/heads/main/libdl/libdl.cpp#130),
+[dlfcn.cpp#196](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/dlfcn.cpp#196),
+[linker.cpp#439](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/linker.cpp#439).
+
+We arm a real-time interval timer for 80 ms, with a 1 ms period.
+
+> SIGALRM :: the POSIX signal the kernel raises when a
+> `setitimer(ITIMER_REAL)` interval expires. It interrupts whatever thread is
+> running, the handler gets a `ucontext_t`, and `uc_mcontext.pc` is the
+> instruction that was about to execute. Its output is not text; it is a
+> timestamped PC sample.
+
+The handler copies `uc_mcontext.pc` into an array. At the end of the window
+the detector prints two counters: `sampled` (how many timer ticks actually
+arrived) and `outside` (how many of those PCs fell outside every executable
+`PT_LOAD` range). The verdict is deliberately conservative:
+
+```c
+det = sampled > 0 &amp;&amp; sampled &lt;= 120 &amp;&amp;
+      outside >= 3 &amp;&amp; outside * 2 > sampled;
+```
+
+- `sampled &lt;= 120` throws away stalled windows.
+- `outside * 2 > sampled` demands a strict majority.
+- `outside >= 3` keeps one stray sample from becoming a verdict.
+
+An 80 ms window at a 1 ms period gives you about 79 usable samples; the
+missing one is the window edge. It runs at `-Os` with no allocation, no file
+descriptor, and no memory read in the sampling path.
+
+### Why the artifact exists: Stalker's whole house is one anonymous `mmap`
+
+Stalker's execution context is one anonymous allocation. The code slab, slow
+slab, data slab, scratch slab, and Stalker's own stack all live there:
+
+```c
+/* gumstalker-arm64.c:54 */
+#define GUM_CODE_SLAB_SIZE_INITIAL  (128 * 1024)
+#define GUM_DATA_SLAB_SIZE_INITIAL  (GUM_CODE_SLAB_SIZE_INITIAL / 5)
+
+/* gumstalker-arm64.c:2129 */
+base = gum_memory_allocate (NULL, stalker->ctx_size, stalker->page_size,
+    stalker->is_rwx_supported ? GUM_PAGE_RWX : GUM_PAGE_RW);
+```
+
+No path in `/proc/self/maps`, no `dl_iterate_phdr` entry. When the thread is
+executing translated code, the PC is simply not in the reservation anymore.
+
+### Measured on real silicon
+
+Native, no Frida:
+
+```text
+WD00 CLEAN sampled=79 outside=0
+```
+
+Ten windows later, still native:
+
+```text
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+WD00 CLEAN sampled=79 outside=0
+```
+
+Then `Stalker.follow(main_thread)` lands in the middle of a window. The first
+verdict is a mixed one, because that window contains both worlds:
+
+```text
+WD00 DETECTED sampled=81 outside=68
+```
+
+68 out of 81 is still a strict majority, so the verdict flips. One window
+later the transition is over and it is not ambiguous at all:
+
+```text
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+WD00 DETECTED sampled=79 outside=79
+```
+
+After `Stalker.unfollow`:
+
+```text
+WD00 CLEAN sampled=79 outside=0
+```
+
+No maps parsing. No `/proc`. No memory reads. That 81-sample window with 68
+outside is the most useful line in the whole log: it shows the signal is a
+ratio, not a boolean, and it shows why the majority rule matters.
+
+### The fine print (the part that bites)
+
+- `setitimer(ITIMER_REAL)` is process-wide. In a multi-threaded app you want `timer_create()` with `SIGEV_THREAD_ID` and a dedicated signal, or a per-thread `pthread_sigmask`.
+- `dl_iterate_phdr` sees ELF objects, not JIT code. ART, V8, Flutter, and Frida's own relay/trampoline arena are anonymous executable memory and will count as `outside`.
+- That is why the verdict needs a majority. Frida's `Interceptor` can put 4–8% of samples outside without Stalker being present.
+- If the attacker hooks `sigaction`/`setitimer`, the detector can be evaded. More on that in the cat-and-mouse section.
+
+### Small details that make or break it
+
+- `sampled=79` for an 80 ms window at a 1 ms period: the first tick lands at `+1 ms`, the last at `+79` or `+80 ms`. The missing sample is the window edge, not a dropped event.
+- `SA_RESTART` matters. `spin()` calls `clock_gettime()` twice per outer iteration, and without it an `EINTR` can cut the loop short and shrink the window.
+- The handler is not allowed to allocate, lock, or print. It writes into a preallocated `pcs[]` array and bumps a `sig_atomic_t`. Everything else happens on the main thread after the timer is disarmed.
+- `pcs[i] &amp;&amp; ...` drops zero PCs. A PC of `0` is not “outside a module”; it is “the context did not carry a PC”, and counting it would inflate the verdict.
+- Only `PT_LOAD` with `PF_X` counts as code. The same module's `r--` and `rw-` segments are data, and a PC landing there means the sample is bogus, not that Stalker is running.
+- `sampled &lt;= 120` is a stuck-window filter. If the timer coalesced or the process was frozen, the window is not trustworthy and the verdict is thrown away.
+- `dl_iterate_phdr` runs once, before the timer, because of `g_dl_mutex`. Rebuilding the module map on every window would be slower and a deadlock risk for no gain.
+
+Code: [`stalker/wd00.c`](https://github.com/itis911/frida-detection/blob/main/stalker/wd00.c)
+
+---
+
+## WD-01: The 400-Byte Body in the Slab
+
+WD-01 started as a much dumber idea. I wanted to kill Stalker, not fingerprint
+it.
+
+If Stalker copies my code into a slab, I thought, then the slab has a size.
+Find the copy path, feed it a block that is bigger than whatever it reserved,
+and the process goes down in a buffer overflow. No detector, no scan, no
+signal handler: the attacker runs the function, Stalker dies, the app dies,
+done.
+
+That is not a detection. That is a crash oracle, and a crash is the loudest
+thing an app can do. It also only works on the one version you tested, and it
+tells the attacker exactly which function tripped it. A detector has to be
+quiet, repeatable, and cheap. So I stopped trying to break the copier and
+started reading it.
+
+The boring answer turned out to be the useful one: Stalker does not have one
+copy path. It has several, and each one leaves a different artifact in
+memory. That is the part nobody tells you when they say “Stalker copies your
+code.”
+
+### How the bytes travel: page → cache → slab
+
+There are three places where your instructions show up again, and one piece
+of machinery that glues them together:
+
+```c
+/* gumarm64relocator.c:445 */
+if (!rewritten)
+  gum_arm64_writer_put_bytes(ctx->output, insn->bytes, insn->size);
+
+/* gumstalker-arm64.c:2806 */
+gum_arm64_writer_put_brk_imm(cw, 14);
+
+/* gumstalker-arm64.c:3986 */
+memcpy(gum_exec_block_get_snapshot_start(block),
+       block->real_start, snapshot_size);
+
+/* gumstalker-arm64.c:5345 */
+const gsize empty_val = GUM_IC_MAGIC_EMPTY;
+```
+
+Read that top to bottom and the whole design falls out:
+
+1. **The translator copies the body.** The ARM64 relocator walks one instruction at a time. If the instruction does not need rewriting, it is copied verbatim into the code slab. `gum_arm64_writer_put_bytes` is, at heart, a `memcpy`.
+2. **The block ends in a trap.** `brk #14` is the last instruction of every generated block. If execution ever falls through to it, the trap lands in Stalker's exception handler, which is how Stalker gets control back at the edge of the block. `brk #15` and `brk #16` are padding inside the block; `brk #14` is the door.
+3. **The snapshot is a second, verbatim copy.** After the translated block, Stalker stores the original bytes so it can detect self-modifying code. That is a straight `memcpy` of `block->real_start`.
+4. **The inline cache is a third copy surface.** Every translated block gets an IC table full of `real_start` → `code_start` entries, and the empty ones are pre-filled with a magic value instead of zero. We will get to that in WD-02, because it deserves its own chapter.
+
+So “Stalker copied my code” is not one event. It is a translated body, a
+snapshot, and an IC table, all in the same anonymous reservation.
+
+### Why 100 ADDs (the relocator's decision tree)
+
+The relocator asks one question per instruction: *does this instruction care
+where it lives?* If it reads the PC, writes the PC, branches through the PC,
+touches `LR`, or depends on its own address, it gets rewritten. If it is a
+plain ALU operation on registers — `add`, `eor`, `lsl`, `mul` — it has no
+opinion about its address, and Stalker copies it byte for byte.
+
+That is the loophole. Build a body out of instructions with no opinion about
+where they live, and the needle in the slab is byte-identical to the needle
+in your `.so`:
+
+```c
+add x9, x9, #0x101
+add x9, x9, #0x102
+...
+add x9, x9, #0x164
+ret
+```
+
+A hundred of those is 400 contiguous bytes, and only the terminating `ret`
+needs relocation. No prologue, no branches, no literals, no PC-relative
+operands. That is the payload.
+
+```c
+__attribute__((naked, noinline, used))
+static void payload(void)
+{
+  __asm__ __volatile__(
+      "  .set pi, 257\n"                       /* 0x101 */
+      "  .rept 100\n"
+      "    .inst 0x91000129 + (pi &lt;&lt; 10)\n"
+      "  .set pi, pi + 1\n"
+      "  .endr\n"
+      "  ret\n");
+}
+```
+
+`naked` removes the prologue. `noinline` prevents a second copy in the
+caller. `used` keeps the compiler from deleting the whole thing. Before
+scanning, `verify_payload()` checks the actual encodings; if the assembler
+relaxes or re-encodes an instruction, the 400-byte needle becomes a 0-byte
+needle and you get a beautiful false negative.
+
+### Reading the slab without a segfault
+
+Call the payload 20 times per window, then scan every readable mapping except
+the scanner's own image, `[stack]`, `[vvar]`, and `[vdso]`. Under follow you
+get two hits:
+
+```text
+WD01 DETECTED payload=2 file=0 anon=2 regions=1 first=0x74079975a8 scanned=88MB
+```
+
+Two, not one. The first hit is the translated block. The second is the
+snapshot, which is the whole point of WD-02.
+
+### Measured on real silicon
+
+Native:
+
+```text
+WD01 CLEAN payload=0 file=0 anon=0 regions=0 first=0x0 scanned=18MB
+```
+
+Frida attached, no Stalker:
+
+```text
+WD01 CLEAN payload=0 file=0 anon=0 regions=0 first=0x0 scanned=76MB
+```
+
+Under `Stalker.follow`:
+
+```text
+WD01 DETECTED payload=2 file=0 anon=2 regions=1 first=0x74079975a8 scanned=88MB
+```
+
+`file=0` matters: the original body in the executable is skipped, so the only
+hits are anonymous. `anon=2` is the slab.
+
+### The fine print (the part that bites)
+
+- The block must have executed *while followed*. A function called before `Stalker.follow` leaves no copy.
+- If the compiler inlines the function, there is no separate body to find.
+- If the compiler emits a prologue, the 400 bytes are no longer contiguous.
+- If the block contains a branch, the relocator splits it, and the needle no longer exists as one run.
+- In an APK, the payload lives in your `.so`, not `/proc/self/exe`; skip that mapping explicitly.
+
+Code: [`stalker/wd01.c`](https://github.com/itis911/frida-detection/blob/main/stalker/wd01.c)
+
+---
+
+## WD-02: The Placeholders Snitch on You
+
+I found these eight bytes in the middle of a memory dump and had no idea what
+they were:
+
+```text
+0xbaadd00ddeadface
+```
+
+Not a pointer, not a length, not a constant I recognised from the app. So I did
+the obvious thing and searched for it.
+
+![GitHub code search for 0xbaadd00ddeadface in frida/frida-gum](./screenshot_search.png)
+
+
+Two files, two architectures, the same pun: `baad d00d dead face` is a
+constant in Frida's own source. That is not app data. That is DBI data.
+
+### The empty slot: where `0xbaadd00ddeadface` comes from
+
+I traced the code that writes it, and the story is simpler than it looks.
+When ARM64 code does an indirect branch — `blr xN` or `ret` — the target is
+not known at compile time. Stalker keeps a tiny inline cache per block to map
+the real address to the translated address:
+
+```text
+real_start  →  code_start
+```
+
+Each entry is 16 bytes on arm64: two pointers.
+
+- **`real_start`:** the original address in your code (inside a `.so` or the executable).
+- **`code_start`:** the matching address in the RWX code slab — the translated copy Stalker will jump to.
+
+When Stalker allocates the IC table, the slots are empty. Instead of leaving
+them as zeros, it writes a sentinel into `code_start`:
+
+```c
+real_start = NULL;
+code_start = 0xbaadd00ddeadface;   /* GUM_IC_MAGIC_EMPTY */
+```
+
+Here it is in their code:
+
+```c
+/* gumstalker-arm64.c:71 */
+#define GUM_IC_MAGIC_EMPTY  G_GUINT64_CONSTANT(0xbaadd00ddeadface)
+
+/* gumstalker-arm64.c:5345 */
+const gsize empty_val = GUM_IC_MAGIC_EMPTY;
+
+/* gumstalker-arm64.c:5355 */
+block->ic_entries[i].code_start = GSIZE_TO_POINTER(empty_val);
+```
+
+So the slot is not zeroed, it is *marked*. `real_start` stays `NULL`, and
+`code_start` holds a value that is obviously not a valid instruction address.
+When the lookup runs, it compares `real_start`; the sentinel is never used as
+a jump target. It is a tombstone, not a pointer.
+
+That is the clever part. A zeroed table has many explanations — fresh
+allocation, `calloc`, a cleared page. A table full of `0xbaadd00ddeadface`
+has exactly one explanation. Even if Stalker translates a single basic block,
+it reserves a whole table of entries, so the value is all over the slab:
+
+```text
+native                          -> 0 hits
+frida-server attached, idle     -> 0 hits
+Interceptor.attach only         -> 0 hits
+Stalker.follow running          -> 93–100 hits (CLI), 113 hits (APK)
+```
+
+The word does not appear in the app's normal code or normal data. It is not a
+heuristic; it is a literal constant from the DBI's source, sitting in the
+process's readable memory.
+
+One clarification, because these two numbers look contradictory later in this
+chapter: the `sentinel_hits=2` in the measured section is a *different*
+needle. That one is the 16-word `ADD` key used to find the copied body. The
+`0xbaadd00ddeadface` count above is a full-process sweep for the IC magic.
+Different scanner, different question.
+
+### The two copies: original vs snapshot
+
+WD-01 finds two hits and calls it a day. WD-02 asks the next question: are
+they the same bytes? In the corpus below, they are not. One is translated
+code, the other is a verbatim snapshot used to detect self-modifying code.
+That is the Deja Vu: the same body, twice, and only one of them has been
+rewritten.
+
+Stalker stores the snapshot immediately after the translated block:
+
+```c
+/* gumstalker-arm64.c:4025 */
+static gpointer
+gum_exec_block_get_snapshot_start (GumExecBlock * block)
+{
+  return block->code_start + block->code_size;
+}
+```
+
+And the copy is a straight `memcpy` of the original bytes:
+
+```c
+/* gumstalker-arm64.c:3984 */
+snapshot_size = gum_stalker_snapshot_space_needed_for (stalker,
+    block->real_size);
+memcpy (gum_exec_block_get_snapshot_start (block), block->real_start,
+    snapshot_size);
+```
+
+The snapshot exists for one reason: to compare the original bytes against
+what is currently in memory. If the target patched itself, the comparison
+fails and Stalker invalidates the block:
+
+```c
+/* gumstalker-arm64.c:2567 */
+memcmp (block->real_start, gum_exec_block_get_snapshot_start (block),
+    block->real_size) == 0;
+```
+
+The snapshot is not free. It is only allocated when `trust_threshold` is not
+zero:
+
+```c
+/* gumstalker-arm64.c:2021 */
+return (self->trust_threshold != 0) ? real_size : 0;
+```
+
+Set `Stalker.trust_threshold = 0` and WD-02's second copy disappears. That is
+not an evasion trick; it is a documented trade-off.
+
+### The corpus: 28 words of pure ADD
+
+To make the difference visible, the WD-02 corpus is not 100 identical-looking
+ADDs. It is 28 words under comparison, plus the terminating `ret` at word 28:
+
+```text
+0..15   unique ADD sentinel (the search key)
+16..23  plain ALU: eor, lsl, mul, csel, and, orr, sub, cmp
+24      adr x0, g_blob          PC-relative
+25      adrp x1, g_blob         PC-relative
+26      add x1, x1, :lo12:g_blob
+27      ldr x2, g_blob          literal load
+28      ret
+```
+
+Words 24–27 are deliberately hostile to relocation. The translated block must
+change them. The snapshot must not.
+
+### The diff: byte-exact, word for word
+
+WD-02 finds every sentinel hit, then compares 28 words against the original and
+prints one line per hit: `translated N/28` or `snapshot (exact copy) N/28`.
+
+### Measured on real silicon
+
+Native:
+
+```text
+WD02 corpus=28 words sentinel_hits=0 resource=0 first_resource=0x0 scanned=18MB
+```
+
+Frida attached, no Stalker:
+
+```text
+WD02 corpus=28 words sentinel_hits=0 resource=0 first_resource=0x0 scanned=76MB
+```
+
+Under `Stalker.follow`:
+
+```text
+WD02 corpus=28 words sentinel_hits=2 resource=0 first_resource=0x0 scanned=88MB
+        [24] orig=10fdd040 copy=58000580
+        [26] orig=10fdd001 copy=58000541
+        [27] orig=58fdcfe2 copy=58000522
+        hit 0x7b7086f5ac  translated  3/28 words differ
+        hit 0x7b7086f6e4  snapshot (exact copy)  0/28 words differ
+```
+
+Read that slowly:
+
+- **3 / 28 words differ** in the translated block. All three are the PC-relative/literal words. The 16 ADD sentinel and the plain ALU words are byte-identical.
+- **0 / 28 words differ** in the snapshot. It is a straight copy of the original block.
+- The two hits are `0x138` bytes apart: `0x7b7086f6e4 - 0x7b7086f5ac`. That is the translated block followed by its snapshot.
+- `resource=0`: the 64-byte `g_blob` in `.rodata` is not copied. The rewritten instructions still point at it by absolute address. Stalker copies instructions, not the data they reference.
+
+### Why this is the interesting one (it is the translator's fingerprint)
+
+WD-01 tells you "my code is in the slab." WD-02 tells you *which copy is
+which*, and therefore what the translator actually did:
+
+```text
+code      -> copied, PC-relative words rewritten
+data      -> not copied, referenced by absolute address
+snapshot  -> verbatim copy of the original block, stored after the code
+```
+
+That is a much stronger statement than a boolean. It also gives you a clean
+fingerprint: a translated block with exactly the PC-relative words rewritten,
+followed at a small delta by a byte-exact copy of the same block. Add the
+`0xbaadd00ddeadface` tombstone in the IC table and you are no longer guessing
+at all.
+
+### The fine print (the part that bites)
+
+- The snapshot is disabled when `Stalker.trust_threshold = 0`.
+- Word indices assume the assembler did not relax `adrp`+`add` into a single `adr`. If it did, the expected diff count changes. This is why the corpus is verified before scanning.
+- The translated/snapshot delta is not a stable ABI. It depends on block size, literal pool size, and the version of Stalker. Do not hardcode `0x138`; use it as a correlation hint.
+- The `resource=0` result is specific to this corpus. A block that embeds data inline (rather than pointing at `.rodata`) will of course carry those bytes with it.
+- The IC magic only tells you that Stalker allocated IC entries, not which block they belong to. Use it as confirmation, not as a locator.
+
+Code: [`stalker/wd02.c`](https://github.com/itis911/frida-detection/blob/main/stalker/wd02.c)
+
+---
+
+## The cat-and-mouse clause (everything here has a half-life)
+
+The obvious evasion is to hook `sigaction`/`rt_sigaction` and `setitimer`. If
+the attacker owns those, the timer never fires and WD-00 is dead.
+
+The obvious counter is raw `svc #0`: user-space and PLT/GOT hooks never see it.
+The limit is the kernel. A module that patches the syscall table or the signal
+path makes a raw syscall lie as easily as a libc call, and at that point you are
+not fighting Stalker — you are fighting a kernel that picked a side.
+
+So the ranking is short: libc wrappers are easiest to hook, raw syscalls beat
+user-space hooks but not a kernel patcher, and kernel tampering ends this class
+of detector.
+
+For the rest, use `dl_iterate_phdr` for the module map, `SIGALRM` for the
+window, raw syscalls if you care about hooks, and the exact server version you
+tested. Do not ship `rwx` alone, either — ART/JIT maps `rwx` too. The
+combination is the signal, and on 17.26.2 it is still there.
+
+The code you are running is not always the code that was mapped. That is the
+whole game.
+
+---
+
+Full code: [itis911/frida-detection](https://github.com/itis911/frida-detection).
+
+        </div>
+      </div>
+      <a class="back-link" href="../index.html">back to write-ups</a>
+    </div>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span>&copy; 2024 emailof911 &mdash; educational purposes only.</span>
+      <a href="../index.html">home</a>
+    </div>
+  </footer>
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>
