@@ -44,31 +44,13 @@
       <div id="content-en">
         <div class="markdown">
 
-> **TL;DR:** three in-process fingerprints for a followed thread, all read from Frida's own code slab — the PC leaves every loaded module, your body is copied twice, and the snapshot is byte-perfect. No root, no ptrace.
-
-I wanted to stop being a tool user and start being a researcher: read the
-source, trace the path, understand the mechanism, then try to find something
-nobody had written down. The first hundred hours are mostly reading source and
-being wrong, but it is the only way to get a result that is yours.
-
-It started with Romain Thomas's post,
-[Detecting Frida Stalker](https://www.romainthomas.fr/post/26-10-frida-stalker-detection/).
-It is one of those detections that is almost insultingly simple: write a
-canary below the stack pointer, execute an indirect branch, and check whether
-Stalker scribbled over it. No `/proc`, no memory scan, no signal. Just the
-stack, doing snitch duty.
-
-A few days later, Ole André published the
-[Frida 17.26.0 release notes](https://frida.re/news/2026/11/05/frida-17-26-0-released/).
-The Stalker section reads like a direct answer:
-
-> **“Stalker has always spilled its scratch registers to the target’s stack, below the stack pointer and past the red zone.”**
+> **TL;DR:** I wanted to stop being a tool user and start being a researcher: read the source, trace the path, understand the mechanism, then try to find something nobody had written down. The first hundred hours are mostly reading source and being wrong, but it is the only way to get a result that is yours.
 >
-> **“Stalker now keeps them in its own per-context stack on x86, x86_64, ARM and ARM64.”**
-
-That is the whole plot: a detector, a fix, and a changelog that tells you
-exactly where to look. So I opened the source, followed the spill path, took
-notes, and then wrote three probes that do not depend on the stack at all.
+> It started with Romain Thomas's post, [Detecting Frida Stalker](https://www.romainthomas.fr/post/26-10-frida-stalker-detection/). It is one of those detections that is almost insultingly simple: write a canary below the stack pointer, execute an indirect branch, and check whether Stalker scribbled over it. No `/proc`, no memory scan, no signal. Just the stack, doing snitch duty.
+>
+> A few days later, Ole André published the [Frida 17.26.0 release notes](https://frida.re/news/2026/11/05/frida-17-26-0-released/). The Stalker section reads like a direct answer: **“Stalker has always spilled its scratch registers to the target’s stack, below the stack pointer and past the red zone.”** Then: **“Stalker now keeps them in its own per-context stack on x86, x86_64, ARM and ARM64.”**
+>
+> That is the whole plot: a detector, a fix, and a changelog that tells you exactly where to look. So I opened the source, followed the spill path, took notes, and then wrote three probes that do not depend on the stack at all: **WD-00** (PC outside modules), **WD-01** (the copied 400-byte body), **WD-02** (the sentinel and the byte-perfect snapshot). All three work on 17.26.2, and every number below comes from a Redmi 9 running frida-server 17.26.2.
 
 ---
 
