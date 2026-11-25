@@ -54,10 +54,9 @@ I wanted to stop being a tool user and start being a researcher: read the
 source, trace the path, understand the mechanism, then try to find something
 nobody had written down. That is still the only method I trust.
 
-It began with Romain Thomas's
-[Detecting Frida Stalker](https://www.romainthomas.fr/post/26-10-frida-stalker-detection/).
-When Frida 17.26.0 closed that specific gap, I opened `gumstalker-arm64.c` to
-see what was left and wrote three probes that do not touch the stack at all.
+It began with [Romain's detector](https://www.romainthomas.fr/post/26-10-frida-stalker-detection/)
+and [Ole's 17.26.0 notes](https://frida.re/news/2026/11/05/frida-17-26-0-released/).
+I opened `gumstalker-arm64.c` and wrote three probes that never touch the stack.
 
 ---
 
